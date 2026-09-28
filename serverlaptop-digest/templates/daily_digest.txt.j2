@@ -1,0 +1,179 @@
+{# Daily SOC digest plain-text body. State shape: soc-aggregated/v1.
+   Note: with trim_blocks=True, do NOT end output lines with block tags
+   ({% if %}, {% endif %}, {% set %}). Pre-compute into {% set %} on a line
+   of its own; emit with plain {{ }} expressions. #}
+============================================================
+  SOC DAILY DIGEST — {{ now_sgt.strftime('%A, %d %B %Y %H:%M SGT') }}
+  Window: last 24 h  ({{ state.window_start_utc[:19] }}Z → {{ state.window_end_utc[:19] }}Z)
+============================================================
+
+[ FLEET HEALTH ]
+{% for role in ['pi4'] %}
+{% set s = state.sensors[role] %}
+{% if s.fresh %}
+  {{ role }}  : FRESH   (last push {{ s.age_seconds | fmt_age }} ago)
+{% else %}
+  {{ role }}  : STALE   ({{ s.stale_reason }})
+{% endif %}
+{% endfor %}
+{% if state.alert_triage_health %}
+  alert triage : {{ state.alert_triage_health }}
+{% endif %}
+
+[ WAZUH FLEET — 24 h ]
+{% if state.wazuh.available %}
+  Total alerts     : {{ state.wazuh.total_alerts }}
+  By level         :
+{% for lvl, n in state.wazuh.by_level.items() %}
+{% set tag = ' (high)' if lvl|int >= 10 else '' %}
+    level {{ lvl }}{{ tag }}: {{ n }}
+{% endfor %}
+
+  Top 10 rules:
+{% for r in state.wazuh.top_rules %}
+    {{ "%5d"|format(r.count) }}  rule {{ r.id }}  {{ r.description[:60] }}
+{% endfor %}
+
+  Top 10 source IPs:
+{% for x in state.wazuh.top_src_ips %}
+{% set tag = '  [INTERNAL]' if x.ip | is_internal else '' %}
+    {{ "%5d"|format(x.count) }}  {{ "%-18s"|format(x.ip) }}{{ tag }}
+{% endfor %}
+
+  MITRE tactics:
+{% for m in state.wazuh.top_mitre %}
+    {{ "%5d"|format(m.count) }}  {{ m.tactic }}
+{% endfor %}
+
+  Hourly histogram (UTC):
+{% set max_h = state.wazuh.alerts_by_hour.values() | list | max %}
+{% for hr in range(24) %}
+{% set key = '%02d'|format(hr) %}
+{% set n = state.wazuh.alerts_by_hour.get(key, 0) %}
+{% set bar = ('#' * (n * 40 // max_h)) if max_h else '' %}
+    {{ key }}h  {{ "%4d"|format(n) }}  {{ bar }}
+{% endfor %}
+{% else %}
+  Wazuh unavailable: {{ state.wazuh.error | default('unknown error') }}
+{% endif %}
+
+[ ALERT TRIAGE — AI first pass on level >=7 (advisory only; verify before acting) ]
+{% set t = state.alert_triage %}
+{% if t and t.status is not defined %}
+  Reviewed         : {{ t.novel_count + t.suppressed_count }} alerts ({{ t.model }})
+  Novel (review)   : {{ t.novel_count }}
+  Suppressed noise : {{ t.suppressed_count }}
+{% for g in t.groups %}
+    {{ "%3d"|format(g.count) }}x rule {{ g.rule_id }}  {{ g.agent }}  {{ g.description[:55] }}
+         {{ g.reason[:110] }}
+{% endfor %}
+{% elif t %}
+  UNAVAILABLE — {{ t.error }}
+  Triage is a filter on top of the view above; nothing is hidden when it is down.
+{% else %}
+  (disabled)
+{% endif %}
+
+============================================================
+  PER-SENSOR DETAIL
+============================================================
+{% for role in ['pi4'] %}
+{% set s = state.sensors[role] %}
+
+[ {{ role | upper }} ]
+{% if not s.fresh %}
+  [STALE — last push: {{ s.last_push_utc or 'never' }}]
+  Reason: {{ s.stale_reason }}
+{% endif %}
+{% if s.data %}
+{% set d = s.data %}
+  Hostname : {{ d.hostname }}
+  Role     : {{ d.role }}
+  Captured : {{ d.generated_at_utc }}
+
+  System:
+    Uptime : {{ d.system.uptime }}
+    CPU    : {{ d.system.cpu }}
+    RAM    : {{ d.system.ram }}
+    Temp   : {{ d.system.temp }}
+
+  Threat (local detector, 24 h):
+{% if d.threat.error is defined %}
+    ERROR: {{ d.threat.error }}
+{% else %}
+    Anomalies        : {{ d.threat.anomaly_count }}
+    Blocked IPs      : {{ d.threat.blocked_count }}
+    Port scans       : {{ d.threat.portscan_count }}
+    Brute force      : {{ d.threat.bruteforce_count }}
+    DNS exfil        : {{ d.threat.dns_exfil_count }}
+{% if d.threat.top_ips %}
+    Top anomaly IPs:
+{% for ip, c in d.threat.top_ips %}
+      {{ "%-18s"|format(ip) }}  {{ c }} hit(s)
+{% endfor %}
+{% endif %}
+{% if d.threat.bruteforce_top %}
+    Top brute-force IPs:
+{% for ip, c in d.threat.bruteforce_top %}
+{% set tag = ' [INTERNAL]' if ip | is_internal else '' %}
+      {{ "%-18s"|format(ip) }}  {{ c }} attempt(s){{ tag }}
+{% endfor %}
+{% endif %}
+{% if d.threat.top_countries %}
+    Top countries:
+{% for cc, c in d.threat.top_countries %}
+      {{ cc }}  {{ c }} alert(s)
+{% endfor %}
+{% endif %}
+{% if d.threat.blocked_entries %}
+    Recent blocks (max 10):
+{% for entry in d.threat.blocked_entries[:10] %}
+      {{ entry }}
+{% endfor %}
+{% if d.threat.blocked_entries | length > 10 %}
+      ... and {{ d.threat.blocked_entries | length - 10 }} more.
+{% endif %}
+{% endif %}
+{% endif %}
+
+  Cowrie honeypot:
+{% if d.cowrie.error is defined %}
+    ERROR: {{ d.cowrie.error }}
+{% else %}
+    Login attempts   : {{ d.cowrie.total_attempts }}
+{% if d.cowrie.top_ips %}
+    Top attacker IPs:
+{% for ip, c in d.cowrie.top_ips %}
+{% set tag = ' [INTERNAL — not adversary]' if ip | is_internal else '' %}
+      {{ "%-18s"|format(ip) }}  {{ c }} attempt(s){{ tag }}
+{% endfor %}
+{% endif %}
+{% if d.cowrie.top_credentials %}
+    Top credentials:
+{% for cred, c in d.cowrie.top_credentials %}
+      {{ "%-32s"|format(cred) }}  {{ c }}x
+{% endfor %}
+{% endif %}
+{% endif %}
+
+{% if d.cowrie_profiles %}
+  Cowrie attacker profiles:
+{% for p in d.cowrie_profiles %}
+    {{ p }}
+{% endfor %}
+{% else %}
+  Cowrie attacker profiles: (none)
+{% endif %}
+{% if d.agent_prebrief %}
+
+  Agent Evidence Summary (soc-agent):
+{{ d.agent_prebrief | indent(4, first=true) }}
+{% endif %}
+{% else %}
+  (no data — sensor never pushed)
+{% endif %}
+{% endfor %}
+
+============================================================
+{{ state.schema }} · generated by ~/soc-digest/daily_digest.py
+============================================================
