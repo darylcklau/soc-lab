@@ -8,6 +8,8 @@ Home security lab automation: a Wazuh-based SOC with a Telegram bot, a daily ema
 - APScheduler jobs: health checks, Wazuh alert polling (level >= 12), Cowrie persistence checks, Telegram bot (`/status /digest /threats /block`).
 - `analysis/l1_triage.py`: **L1-analyst triage, currently in shadow mode.** Every 30 min it takes level 7-11 alerts, drops known-benign baselines in code, and asks Claude to classify the rest as `noise` / `watch` / `investigate`. It also annotates alerts the poll job already escalated. Results are only written to `logs/l1_shadow.jsonl`; nothing is sent to Telegram yet.
 
+- `analysis/honeypot_investigator.py`: **honeypot specialist (on demand).** `python -m analysis.honeypot_investigator <ip> ["why flagged"]` runs an L2-style investigation of one Cowrie source IP. The model chooses its own read-only queries (session history, transcripts, shared-indicator pivots for campaign linking, Wazuh alerts, actor history) within a 12-turn budget and must finish with a structured case (classification, severity, confidence, timeline, evidence, human-decides actions), saved to `cases/honeypot/`. Not scheduled and not wired to Telegram yet.
+
 **`serverlaptop-digest/`** (Wazuh manager host, cron 01:00 UTC)
 - `aggregator.py` builds the 24h state from Wazuh's local alert log and sensor pushes; `daily_digest.py` renders and emails it.
 - `triage.py`: batches the last 24h of level >= 7 alerts into one Claude call and adds an "ALERT TRIAGE" section plus an `alert triage: OK/RED` health row to the digest. Failures never block the digest.

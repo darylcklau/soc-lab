@@ -96,15 +96,17 @@ async def job_wazuh_poll():
     logger.info("Running Wazuh alert poll")
     try:
         alerts = get_escalated_alerts()
-        try:
-            l1_triage.enrich_in_background(alerts)   # shadow mode: logs only, never affects sending
-        except Exception as e:
-            logger.error(f"L1 enrich hook failed: {e}")
         SEVERITY_ORDER = {"LOW": 0, "MEDIUM": 1, "HIGH": 2, "CRITICAL": 3}
         min_sev = SEVERITY_ORDER.get(config.TELEGRAM_MIN_SEVERITY, 2)
-        for alert in alerts:
-            if SEVERITY_ORDER.get(alert.get("severity", ""), 0) < min_sev:
-                continue
+        # get_escalated_alerts() can return thousands of items (e.g. a loose
+        # persistent-attacker match) even though almost none of them clear the
+        # Telegram severity bar. Filter FIRST, enrich only what actually escalates.
+        escalated = [a for a in alerts if SEVERITY_ORDER.get(a.get("severity", ""), 0) >= min_sev]
+        try:
+            l1_triage.enrich_in_background(escalated)   # shadow mode: logs only, never affects sending
+        except Exception as e:
+            logger.error(f"L1 enrich hook failed: {e}")
+        for alert in escalated:
             sev = alert.get("severity", "")
             icon = "🔴" if sev == "HIGH" else "🟡"
             msg = (
@@ -113,6 +115,7 @@ async def job_wazuh_poll():
                 f"Time: {alert.get('timestamp', '')[:19]}"
             )
             await send_message(msg)
+        alerts = escalated
         if alerts:
             logger.info(f"Sent {len(alerts)} escalated alert(s)")
     except Exception as e:

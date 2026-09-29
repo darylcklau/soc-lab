@@ -271,10 +271,16 @@ async def _enrich_all(alerts: list) -> None:
         _log([row])
 
 
+MAX_ENRICH_PER_BATCH = 20   # hard cap: caller's filtering is not this function's only line of defense
+
+
 def enrich_in_background(alerts: list) -> None:
     """Fire-and-forget so the existing alert flow is never delayed or affected."""
     if not ENABLED or not alerts:
         return
+    if len(alerts) > MAX_ENRICH_PER_BATCH:
+        logger.warning(f"L1 enrich: capping batch of {len(alerts)} escalations to {MAX_ENRICH_PER_BATCH}")
+        alerts = alerts[:MAX_ENRICH_PER_BATCH]
     t = asyncio.create_task(_enrich_all(alerts))
     _tasks.add(t)
     t.add_done_callback(_tasks.discard)
