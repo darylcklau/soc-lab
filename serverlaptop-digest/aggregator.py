@@ -22,7 +22,7 @@ WAZUH_ALERTS_DIR = Path("/var/ossec/logs/alerts")
 WAZUH_CURRENT    = WAZUH_ALERTS_DIR / "alerts.json"
 SENSOR_ROLES     = ("pi4",)
 STALE_THRESHOLD_SECONDS = 90 * 60  # 90 min — push is at 08:50 SGT, report at 09:00 SGT
-INTERNAL_CIDRS   = ["192.168.50.0/24"]
+INTERNAL_CIDRS   = ["10.0.0.0/24"]
 
 
 # ---------------------------------------------------------------------------

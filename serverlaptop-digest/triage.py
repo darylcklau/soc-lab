@@ -23,9 +23,9 @@ KNOWN_NOISE_BASELINES = """\
 - Rule 550 firmware FIM bursts on /boot/firmware/* — Pi 4, baseline noise
 - Rule 60110 user account changed — LAUMAINDESK$ SYSTEM paired ms-apart bursts = Windows Hello credential refresh, benign
 - Rule 60122 logon failure — 127.0.0.1, blank usernames = local lock-screen PIN mistype, benign
-- LauMainDesk Registry FIM under HKLM\\System\\CurrentControlSet\\Services — full-tree scan noise, accepted as-is (rule 61138 covers real persistence)
+- desktop Registry FIM under HKLM\\System\\CurrentControlSet\\Services — full-tree scan noise, accepted as-is (rule 61138 covers real persistence)
 - Rules 100010 (auto-block of high-abuse-score scanner), 100200 (Cowrie honeypot credential capture / login success), 100020 (Cowrie brute-force detection) on Pi4 — the honeypot and threat-monitor doing their designed job against internet scanners, expected daily volume, benign
-- Rule 100030 (port-scan detection on Pi4 by the threat-monitor) when the scanning source is an external/internet IP — routine internet background scanning against the honeypot host, expected daily volume, benign. A scan originating from an internal 192.168.50.x address is NOT covered and stays novel
+- Rule 100030 (port-scan detection on Pi4 by the threat-monitor) when the scanning source is an external/internet IP — routine internet background scanning against the honeypot host, expected daily volume, benign. A scan originating from an internal 10.0.0.x address is NOT covered and stays novel
 - Rule 100070 (Cowrie brute-force threshold on Pi4, N failed attempts from one IP) — the honeypot threat-monitor doing its designed job against internet scanners, expected daily volume, benign
 - Rule 553 (file deleted) ONLY when the path is an old kernel/initrd/System.map file under /boot removed by a kernel package upgrade, or a snap mount unit — routine apt/snap cleanup, benign. A rule 553 deletion of anything else (logs, binaries, user files, config) is NOT covered and stays novel
 - Rules 2902/2903/2904 (dpkg package install/remove/half-configured state) and the rule 550 FIM changes they trigger for binaries/config touched by the same upgrade — routine apt/unattended-upgrades package churn on any agent, benign

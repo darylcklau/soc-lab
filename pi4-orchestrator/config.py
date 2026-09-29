@@ -7,14 +7,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --- Pi 3 (threat-monitor) ---
-PI3_HOST = "192.168.50.50"
+PI3_HOST = "10.0.0.50"
 PI3_USER = "dar"
 PI3_PORT = 2222
 PI3_SSH_KEY = os.environ.get("PI3_SSH_KEY", "/home/dar/.ssh/id_ed25519")
 PI3_THREAT_MONITOR_DIR = "/home/dar/threat-monitor"
 
 # --- Wazuh ---
-WAZUH_HOST = "192.168.50.150"
+WAZUH_HOST = "10.0.0.150"
 WAZUH_PORT = 55000
 WAZUH_USER = os.environ.get("WAZUH_USER", "")
 WAZUH_PASS = os.environ.get("WAZUH_PASS", "")
@@ -22,7 +22,7 @@ WAZUH_ALERT_LEVEL = 12
 WAZUH_INDEXER_URL = "https://127.0.0.1:19200"
 WAZUH_INDEXER_USER = os.environ.get("WAZUH_INDEXER_USER", "")
 WAZUH_INDEXER_PASS = os.environ.get("WAZUH_INDEXER_PASS", "")
-WAZUH_AGENT_WHITELIST = ["963B", "LauMainDesk"]
+WAZUH_AGENT_WHITELIST = ["963B", "desktop"]
 
 # --- OpenCTI ---
 OPENCTI_URL = "http://localhost:8080"

@@ -34,7 +34,7 @@ MAX_CALLS_PER_DAY = 100    # hard cost backstop
 CACHE_TTL = 2 * 3600       # re-use a (rule, agent, ip) verdict for 2h
 LLM_TIMEOUT = 240
 
-SYSTEM = """You are an L1 SOC analyst assistant for a home security lab. Environment: a Raspberry Pi 4 ("Pi4") runs a Cowrie SSH honeypot on port 22 (its real SSH is on 2222), Zeek, and a threat-monitor that auto-blocks scanners; "serverlaptop" runs the Wazuh manager; "LauMainDesk" is the owner's Windows desktop; the LAN is 192.168.50.0/24.
+SYSTEM = """You are an L1 SOC analyst assistant for a home security lab. Environment: a Raspberry Pi 4 ("Pi4") runs a Cowrie SSH honeypot on port 22 (its real SSH is on 2222), Zeek, and a threat-monitor that auto-blocks scanners; "serverlaptop" runs the Wazuh manager; "desktop" is the owner's Windows desktop; the LAN is 10.0.0.0/24.
 
 Known-benign routine activity (honeypot hits from internet scanners, apt/dpkg package churn, Windows Hello credential refresh) is filtered out before you see alerts, so what you receive is the remainder.
 
@@ -94,7 +94,7 @@ def _is_noise(a: dict) -> bool:
     rid, agent, path = a["rule_id"], a["agent"], a["syscheck_path"]
     if agent == "Pi4" and rid in {"100010", "100020", "100070", "100200"}:
         return True                                   # honeypot / threat-monitor doing its job
-    if rid == "100030" and not a["src_ip"].startswith("192.168.50."):
+    if rid == "100030" and not a["src_ip"].startswith("10.0.0."):
         return True                                   # internet port scan; internal scans stay visible
     if rid in {"2902", "2903", "2904"}:
         return True                                   # apt/dpkg churn
@@ -104,7 +104,7 @@ def _is_noise(a: dict) -> bool:
         return True
     if rid == "553" and (path.startswith("/boot/") or "/snap/" in path or "snap-" in path):
         return True
-    if agent == "LauMainDesk":
+    if agent == "desktop":
         if rid == "60110" and "LAUMAINDESK$" in a["full_log"].upper():
             return True                               # Windows Hello credential refresh
         if "CurrentControlSet\\Services" in path and rid != "61138":
